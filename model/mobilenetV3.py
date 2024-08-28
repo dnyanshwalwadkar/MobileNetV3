@@ -2,21 +2,8 @@ import tensorflow as tf
 from tensorflow.keras import layers
 from tensorflow.keras.models import Model
 from tensorflow.keras import backend
-from tensorflow.keras.utils import get_file
 from model import imagenet_utils
-BASE_WEIGHT_PATH = 'https://storage.googleapis.com/download.tensorflow.org/models/'
 
-WEIGHTS_HASHES = {
-    # Example hash, replace with actual hash values for the weights files
-    "small": [
-        "hash_value_for_weights_file",
-        "hash_value_for_weights_file_no_top",
-    ],
-    "large": [
-        "hash_value_for_weights_file",
-        "hash_value_for_weights_file_no_top",
-    ],
-}
 
 def relu(x):
     return layers.ReLU()(x)
