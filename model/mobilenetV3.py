@@ -272,13 +272,14 @@ def _mobilenet_v3_large(x, alpha=1.0):
     x = _inverted_res_block(x, expansion=3, filters=_depth(40 * alpha), kernel_size=5, stride=1, se_ratio=0.25, activation=hard_swish, block_id=4)
     x = _inverted_res_block(x, expansion=3, filters=_depth(40 * alpha), kernel_size=5, stride=1, se_ratio=0.25, activation=hard_swish, block_id=5)
     x = _inverted_res_block(x, expansion=6, filters=_depth(80 * alpha), kernel_size=5, stride=2, se_ratio=0.25, activation=hard_swish, block_id=6)
-    x = _inverted_res_block(x, expansion=6, filters=_depth(80 * alpha), kernel_size=5, stride=1, se_ratio=0.25, activation=hard_swish, block_id=7)
-    x = _inverted_res_block(x, expansion=6, filters=_depth(80 * alpha), kernel_size=5, stride=1, se_ratio=0.25, activation=hard_swish, block_id=8)
-    x = _inverted_res_block(x, expansion=6, filters=_depth(112 * alpha), kernel_size=5, stride=1, se_ratio=0.25, activation=hard_swish, block_id=9)
+    x = _inverted_res_block(x, expansion=2.5, filters=_depth(80 * alpha), kernel_size=5, stride=1, se_ratio=0.25, activation=hard_swish, block_id=7)
+    x = _inverted_res_block(x, expansion=2.3, filters=_depth(80 * alpha), kernel_size=5, stride=1, se_ratio=0.25, activation=hard_swish, block_id=8)
+    x = _inverted_res_block(x, expansion=2.3, filters=_depth(80 * alpha), kernel_size=5, stride=1, se_ratio=0.25, activation=hard_swish, block_id=9)
     x = _inverted_res_block(x, expansion=6, filters=_depth(112 * alpha), kernel_size=5, stride=1, se_ratio=0.25, activation=hard_swish, block_id=10)
-    x = _inverted_res_block(x, expansion=6, filters=_depth(160 * alpha), kernel_size=5, stride=2, se_ratio=0.25, activation=hard_swish, block_id=11)
-    x = _inverted_res_block(x, expansion=6, filters=_depth(160 * alpha), kernel_size=5, stride=1, se_ratio=0.25, activation=hard_swish, block_id=12)
+    x = _inverted_res_block(x, expansion=6, filters=_depth(112 * alpha), kernel_size=5, stride=1, se_ratio=0.25, activation=hard_swish, block_id=11)
+    x = _inverted_res_block(x, expansion=6, filters=_depth(160 * alpha), kernel_size=5, stride=2, se_ratio=0.25, activation=hard_swish, block_id=12)
     x = _inverted_res_block(x, expansion=6, filters=_depth(160 * alpha), kernel_size=5, stride=1, se_ratio=0.25, activation=hard_swish, block_id=13)
+    x = _inverted_res_block(x, expansion=6, filters=_depth(160 * alpha), kernel_size=5, stride=1, se_ratio=0.25, activation=hard_swish, block_id=14)
     return x
 
 

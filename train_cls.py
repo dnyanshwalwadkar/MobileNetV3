@@ -1,6 +1,6 @@
 import os
 import json
-# from tensorflow.keras.applications import MobileNetV3Large, MobileNetV3Small
+from tensorflow.keras.applications import MobileNetV3Large, MobileNetV3Small
 import math
 def create_custom_model(cfg):
     """Create and return a custom MobileNetV3 model based on configuration."""
@@ -29,9 +29,9 @@ def display_model_summaries():
     # custom_model = create_custom_model(cfg)
     # custom_model.summary()
 
-    # print("\nPrebuilt MobileNetV3 Large Model Summary:")
-    # prebuilt_large = MobileNetV3Large(input_shape=(int(cfg['height']), int(cfg['width']), 3), alpha=1, include_top=True, weights=None)
-    # prebuilt_large.summary()
+    print("\nPrebuilt MobileNetV3 Large Model Summary:")
+    prebuilt_large = MobileNetV3Large(input_shape=(int(cfg['height']), int(cfg['width']), 3), alpha=0.15, include_top=False, weights=None)
+    prebuilt_large.summary()
 
     # print("\nPrebuilt MobileNetV3 Small Model Summary:")
     # prebuilt_small = MobileNetV3Small(input_shape=(int(cfg['height']), int(cfg['width']), 3),classes=2, include_top=False,alpha=0.15, weights=None)

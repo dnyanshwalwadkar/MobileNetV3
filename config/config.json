@@ -4,5 +4,5 @@
     "width": 224,
     "class_number": 2,
     "batch": 32,
-    "model": "small"
+    "model": "large"
 }
