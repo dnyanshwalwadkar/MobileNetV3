@@ -37,7 +37,7 @@ class LiteRASSP:
             layer_name8 = 'batch_normalization_13'
             layer_name16 = 'add_5'
         elif self.backbone == 'small':
-            from model.mobilenet_v3_small import MobileNetV3_Small
+            from model.mobilenetV3 import MobileNetV3_Small
 
             model = MobileNetV3_Small(self.shape, self.n_class, alpha=self.alpha, include_top=False).build()
             layer_name8 = 'batch_normalization_7'
