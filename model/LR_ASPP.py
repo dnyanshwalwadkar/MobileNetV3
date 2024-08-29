@@ -1,102 +1,61 @@
-"""Lite R-ASPP Semantic Segmentation based on MobileNetV3.
-"""
+import tensorflow as tf
+from tensorflow.keras.layers import Conv2D, BatchNormalization, ReLU, GlobalAveragePooling2D, Reshape, Multiply, Add, UpSampling2D
+from mobilenetV3 import MobileNetV3Small
 
+def LiteR_ASPP(features):
+    # 1x1 Conv, BN, ReLU
+    x1 = Conv2D(128, (1, 1), padding='same')(features)
+    x1 = BatchNormalization()(x1)
+    x1 = ReLU()(x1)
 
-from keras.models import Model
-from keras.layers import Conv2D, AveragePooling2D, BatchNormalization, Activation, Multiply, Add
-from keras.utils.vis_utils import plot_model
-from model.layers.bilinear_upsampling import BilinearUpSampling2D
+    # Global Average Pooling, followed by 1x1 Conv and Sigmoid activation
+    x2 = GlobalAveragePooling2D()(features)
+    x2 = Reshape((1, 1, -1))(x2)
+    x2 = Conv2D(128, (1, 1), padding='same')(x2)
+    x2 = tf.keras.activations.sigmoid(x2)
+    x2 = UpSampling2D(size=(49, 49), interpolation='bilinear')(x2)  # Upsample to match feature map size
 
+    # Multiply the two paths
+    x = Multiply()([x1, x2])
 
-class LiteRASSP:
-    def __init__(self, input_shape, n_class=19, alpha=1.0, weights=None, backbone='small'):
-        """Init.
+    # Bilinear upsample
+    x = UpSampling2D(size=(4, 4), interpolation='bilinear')(x)
 
-        # Arguments
-            input_shape: An integer or tuple/list of 3 integers, shape
-                of input tensor (should be 1024 × 2048 or 512 × 1024 according 
-                to the paper).
-            n_class: Integer, number of classes.
-            alpha: Integer, width multiplier for mobilenetV3.
-            weights: String, weights for mobilenetv3.
-            backbone: String, name of backbone (must be small or large).
-        """
-        self.shape = input_shape
-        self.n_class = n_class
-        self.alpha = alpha
-        self.weights = weights
-        self.backbone = backbone
+    # 1x1 Conv to reduce to 19 channels (for 19 classes)
+    x = Conv2D(19, (1, 1), padding='same')(x)
 
-    def _extract_backbone(self):
-        """extract feature map from backbone.
-        """
-        if self.backbone == 'large':
-            from model.mobilenet_v3_large import MobileNetV3_Large
+    return x
 
-            model = MobileNetV3_Large(self.shape, self.n_class, alpha=self.alpha, include_top=False).build()
-            layer_name8 = 'batch_normalization_13'
-            layer_name16 = 'add_5'
-        elif self.backbone == 'small':
-            from model.mobilenetV3 import MobileNetV3_Small
+def SegmentationHead(backbone_output):
+    # Lite R-ASPP Head
+    features = LiteR_ASPP(backbone_output)
 
-            model = MobileNetV3_Small(self.shape, self.n_class, alpha=self.alpha, include_top=False).build()
-            layer_name8 = 'batch_normalization_7'
-            layer_name16 = 'add_2'
-        else:
-            raise Exception('Invalid backbone: {}'.format(self.backbone))
+    # Final 1x1 Conv to match output channels
+    x = Conv2D(19, (1, 1), padding='same')(features)
 
-        if self.weights is not None:
-            model.load_weights(self.weights, by_name=True)
+    # Bilinear upsampling to match the input image size
+    x = UpSampling2D(size=(4, 4), interpolation='bilinear')(x)
 
-        inputs= model.input
-        # 1/8 feature map.
-        out_feature8 = model.get_layer(layer_name8).output
-        # 1/16 feature map.
-        out_feature16 = model.get_layer(layer_name16).output
+    return x
 
-        return inputs, out_feature8, out_feature16
+def build_segmentation_model(backbone):
+    backbone_output = backbone.output  # Extract feature map from backbone
 
-    def build(self, plot=False):
-        """build Lite R-ASPP.
+    segmentation_output = SegmentationHead(backbone_output)
 
-        # Arguments
-            plot: Boolean, weather to plot model.
+    # Create the model
+    model = tf.keras.models.Model(inputs=backbone.input, outputs=segmentation_output)
 
-        # Returns
-            model: Model, model.
-        """
-        inputs, out_feature8, out_feature16 = self._extract_backbone()
+    return model
 
-        # branch1
-        x1 = Conv2D(128, (1, 1))(out_feature16)
-        x1 = BatchNormalization()(x1)
-        x1 = Activation('relu')(x1)
+# Example Usage with MobileNetV3 Small or Large
+# Assume `mobilenet_v3_small` and `mobilenet_v3_large` are defined MobileNetV3 models.
 
-        # branch2
-        s = x1.shape
+# For Small Model
+backbone_small = MobileNetV3Small(input_shape=(224, 224, 3), alpha=1.0, include_top=False)
+model_small = build_segmentation_model(backbone_small)
+print(model_small.summary())
+# # For Large Model
+# backbone_large = mobilenet_v3_large(input_shape=(224, 224, 3), alpha=1.0, include_top=False)
+# model_large = build_segmentation_model(backbone_large)
 
-        x2 = AveragePooling2D(pool_size=(49, 49), strides=(16, 20))(out_feature16)
-        x2 = Conv2D(128, (1, 1))(x2)
-        x2 = Activation('sigmoid')(x2)
-        x2 = BilinearUpSampling2D(target_size=(int(s[1]), int(s[2])))(x2)
-
-        # branch3
-        x3 = Conv2D(self.n_class, (1, 1))(out_feature8)
-
-        # merge1
-        x = Multiply()([x1, x2])
-        x = BilinearUpSampling2D(size=(2, 2))(x)
-        x = Conv2D(self.n_class, (1, 1))(x)
-
-        # merge2
-        x = Add()([x, x3])
-
-        # out
-        x = Activation('softmax')(x)
-
-        model = Model(inputs=inputs, outputs=x)
-
-        if plot:
-            plot_model(model, to_file='images/LR_ASPP.png', show_shapes=True)
-
-        return model
