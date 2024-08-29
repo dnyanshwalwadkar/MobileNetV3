@@ -22,29 +22,18 @@ def _depth(v, divisor=8, min_value=None):
         new_v += divisor
     return new_v
 
-def _se_block(inputs, filters, se_ratio, prefix):
-    x = layers.GlobalAveragePooling2D(
-        keepdims=True, name=prefix + "squeeze_excite_avg_pool"
-    )(inputs)
-    x = layers.Conv2D(
-        _depth(filters * se_ratio),
-        kernel_size=1,
-        padding="same",
-        name=prefix + "squeeze_excite_conv",
-    )(x)
-    x = layers.ReLU(name=prefix + "squeeze_excite_relu")(x)
-    x = layers.Conv2D(
-        filters,
-        kernel_size=1,
-        padding="same",
-        name=prefix + "squeeze_excite_conv_1",
-    )(x)
-    x = hard_sigmoid(x)
-    x = layers.Multiply(name=prefix + "squeeze_excite_mul")([inputs, x])
-    return x
+def _attention_gate_block(inputs, filters, prefix):
+    g1 = layers.SeparableConv2D(filters, kernel_size=1, padding="same", name=prefix + "ag_conv1")(inputs)
+    x1 = layers.SeparableConv2D(filters, kernel_size=1, padding="same", name=prefix + "ag_conv2")(inputs)
+    g1_x1 = layers.Add(name=prefix + "ag_add")([g1, x1])
+    psi = layers.ReLU(name=prefix + "ag_relu")(g1_x1)
+    psi = layers.SeparableConv2D(1, kernel_size=1, padding="same", name=prefix + "ag_conv3")(psi)
+    psi = hard_sigmoid(psi)
+    return layers.Multiply(name=prefix + "ag_mul")([inputs, psi])
+
 
 def _inverted_res_block(
-    x, expansion, filters, kernel_size, stride, se_ratio, activation, block_id
+    x, expansion, filters, kernel_size, stride, attention_gate_block, activation, block_id
 ):
     channel_axis = 1 if backend.image_data_format() == "channels_first" else -1
     shortcut = x
@@ -87,8 +76,8 @@ def _inverted_res_block(
     )(x)
     x = activation(x)
 
-    if se_ratio:
-        x = _se_block(x, _depth(infilters * expansion),se_ratio, prefix)
+    if attention_gate_block:
+        x = _attention_gate_block(x, _depth(infilters * expansion), prefix)
     
 
     x = layers.Conv2D(
@@ -249,35 +238,35 @@ def MobileNetV3(
     return model
 
 def _mobilenet_v3_small(x, alpha=1.0):
-    x = _inverted_res_block(x, expansion=1, filters=_depth(16 * alpha), kernel_size=3, stride=2, se_ratio=0.25, activation=hard_swish, block_id=0)
-    x = _inverted_res_block(x, expansion=72/16, filters=_depth(24 * alpha), kernel_size=3, stride=2, se_ratio=0.25, activation=hard_swish, block_id=1)
-    x = _inverted_res_block(x, expansion=88/24, filters=_depth(24 * alpha), kernel_size=3, stride=1, se_ratio=0.25, activation=hard_swish, block_id=2)
-    x = _inverted_res_block(x, expansion=4, filters=_depth(40 * alpha), kernel_size=5, stride=2, se_ratio=0.25, activation=hard_swish, block_id=3)
-    x = _inverted_res_block(x, expansion=6, filters=_depth(40 * alpha), kernel_size=5, stride=1, se_ratio=0.25, activation=hard_swish, block_id=4)
-    x = _inverted_res_block(x, expansion=6, filters=_depth(40 * alpha), kernel_size=5, stride=1, se_ratio=0.25, activation=hard_swish, block_id=5)
-    x = _inverted_res_block(x, expansion=3, filters=_depth(48 * alpha), kernel_size=5, stride=1, se_ratio=0.25, activation=hard_swish, block_id=6)
-    x = _inverted_res_block(x, expansion=3, filters=_depth(48 * alpha), kernel_size=5, stride=1, se_ratio=0.25, activation=hard_swish, block_id=7)
-    x = _inverted_res_block(x, expansion=6, filters=_depth(96 * alpha), kernel_size=5, stride=2, se_ratio=0.25, activation=hard_swish, block_id=8)
-    x = _inverted_res_block(x, expansion=6, filters=_depth(96 * alpha), kernel_size=5, stride=1, se_ratio=0.25, activation=hard_swish, block_id=9)
-    x = _inverted_res_block(x, expansion=6, filters=_depth(96 * alpha), kernel_size=5, stride=1, se_ratio=0.25, activation=hard_swish, block_id=10)
+    x = _inverted_res_block(x, expansion=1, filters=_depth(16 * alpha), kernel_size=3, stride=2, attention_gate_block=True, activation=hard_swish, block_id=0)
+    x = _inverted_res_block(x, expansion=72/16, filters=_depth(24 * alpha), kernel_size=3, stride=2, attention_gate_block=True, activation=hard_swish, block_id=1)
+    x = _inverted_res_block(x, expansion=88/24, filters=_depth(24 * alpha), kernel_size=3, stride=1, attention_gate_block=True, activation=hard_swish, block_id=2)
+    x = _inverted_res_block(x, expansion=4, filters=_depth(40 * alpha), kernel_size=5, stride=2, attention_gate_block=True, activation=hard_swish, block_id=3)
+    x = _inverted_res_block(x, expansion=6, filters=_depth(40 * alpha), kernel_size=5, stride=1, attention_gate_block=True, activation=hard_swish, block_id=4)
+    x = _inverted_res_block(x, expansion=6, filters=_depth(40 * alpha), kernel_size=5, stride=1, attention_gate_block=True, activation=hard_swish, block_id=5)
+    x = _inverted_res_block(x, expansion=3, filters=_depth(48 * alpha), kernel_size=5, stride=1, attention_gate_block=True, activation=hard_swish, block_id=6)
+    x = _inverted_res_block(x, expansion=3, filters=_depth(48 * alpha), kernel_size=5, stride=1, attention_gate_block=True, activation=hard_swish, block_id=7)
+    x = _inverted_res_block(x, expansion=6, filters=_depth(96 * alpha), kernel_size=5, stride=2, attention_gate_block=True, activation=hard_swish, block_id=8)
+    x = _inverted_res_block(x, expansion=6, filters=_depth(96 * alpha), kernel_size=5, stride=1, attention_gate_block=True, activation=hard_swish, block_id=9)
+    x = _inverted_res_block(x, expansion=6, filters=_depth(96 * alpha), kernel_size=5, stride=1, attention_gate_block=True, activation=hard_swish, block_id=10)
     return x
 
 def _mobilenet_v3_large(x, alpha=1.0):
-    x = _inverted_res_block(x, expansion=1, filters=_depth(16 * alpha), kernel_size=3, stride=2, se_ratio=0.25, activation=hard_swish, block_id=0)
-    x = _inverted_res_block(x, expansion=4, filters=_depth(24 * alpha), kernel_size=3, stride=2, se_ratio=0.25, activation=hard_swish, block_id=1)
-    x = _inverted_res_block(x, expansion=3, filters=_depth(24 * alpha), kernel_size=3, stride=1, se_ratio=0.25, activation=hard_swish, block_id=2)
-    x = _inverted_res_block(x, expansion=3, filters=_depth(40 * alpha), kernel_size=5, stride=2, se_ratio=0.25, activation=hard_swish, block_id=3)
-    x = _inverted_res_block(x, expansion=3, filters=_depth(40 * alpha), kernel_size=5, stride=1, se_ratio=0.25, activation=hard_swish, block_id=4)
-    x = _inverted_res_block(x, expansion=3, filters=_depth(40 * alpha), kernel_size=5, stride=1, se_ratio=0.25, activation=hard_swish, block_id=5)
-    x = _inverted_res_block(x, expansion=6, filters=_depth(80 * alpha), kernel_size=5, stride=2, se_ratio=0.25, activation=hard_swish, block_id=6)
-    x = _inverted_res_block(x, expansion=2.5, filters=_depth(80 * alpha), kernel_size=5, stride=1, se_ratio=0.25, activation=hard_swish, block_id=7)
-    x = _inverted_res_block(x, expansion=2.3, filters=_depth(80 * alpha), kernel_size=5, stride=1, se_ratio=0.25, activation=hard_swish, block_id=8)
-    x = _inverted_res_block(x, expansion=2.3, filters=_depth(80 * alpha), kernel_size=5, stride=1, se_ratio=0.25, activation=hard_swish, block_id=9)
-    x = _inverted_res_block(x, expansion=6, filters=_depth(112 * alpha), kernel_size=5, stride=1, se_ratio=0.25, activation=hard_swish, block_id=10)
-    x = _inverted_res_block(x, expansion=6, filters=_depth(112 * alpha), kernel_size=5, stride=1, se_ratio=0.25, activation=hard_swish, block_id=11)
-    x = _inverted_res_block(x, expansion=6, filters=_depth(160 * alpha), kernel_size=5, stride=2, se_ratio=0.25, activation=hard_swish, block_id=12)
-    x = _inverted_res_block(x, expansion=6, filters=_depth(160 * alpha), kernel_size=5, stride=1, se_ratio=0.25, activation=hard_swish, block_id=13)
-    x = _inverted_res_block(x, expansion=6, filters=_depth(160 * alpha), kernel_size=5, stride=1, se_ratio=0.25, activation=hard_swish, block_id=14)
+    x = _inverted_res_block(x, expansion=1, filters=_depth(16 * alpha), kernel_size=3, stride=2, attention_gate_block=True, activation=hard_swish, block_id=0)
+    x = _inverted_res_block(x, expansion=4, filters=_depth(24 * alpha), kernel_size=3, stride=2, attention_gate_block=True, activation=hard_swish, block_id=1)
+    x = _inverted_res_block(x, expansion=3, filters=_depth(24 * alpha), kernel_size=3, stride=1, attention_gate_block=True, activation=hard_swish, block_id=2)
+    x = _inverted_res_block(x, expansion=3, filters=_depth(40 * alpha), kernel_size=5, stride=2, attention_gate_block=True, activation=hard_swish, block_id=3)
+    x = _inverted_res_block(x, expansion=3, filters=_depth(40 * alpha), kernel_size=5, stride=1, attention_gate_block=True, activation=hard_swish, block_id=4)
+    x = _inverted_res_block(x, expansion=3, filters=_depth(40 * alpha), kernel_size=5, stride=1, attention_gate_block=True, activation=hard_swish, block_id=5)
+    x = _inverted_res_block(x, expansion=6, filters=_depth(80 * alpha), kernel_size=5, stride=2, attention_gate_block=True, activation=hard_swish, block_id=6)
+    x = _inverted_res_block(x, expansion=2.5, filters=_depth(80 * alpha), kernel_size=5, stride=1, attention_gate_block=True, activation=hard_swish, block_id=7)
+    x = _inverted_res_block(x, expansion=2.3, filters=_depth(80 * alpha), kernel_size=5, stride=1, attention_gate_block=True, activation=hard_swish, block_id=8)
+    x = _inverted_res_block(x, expansion=2.3, filters=_depth(80 * alpha), kernel_size=5, stride=1, attention_gate_block=True, activation=hard_swish, block_id=9)
+    x = _inverted_res_block(x, expansion=6, filters=_depth(112 * alpha), kernel_size=5, stride=1, attention_gate_block=True, activation=hard_swish, block_id=10)
+    x = _inverted_res_block(x, expansion=6, filters=_depth(112 * alpha), kernel_size=5, stride=1, attention_gate_block=True, activation=hard_swish, block_id=11)
+    x = _inverted_res_block(x, expansion=6, filters=_depth(160 * alpha), kernel_size=5, stride=2, attention_gate_block=True, activation=hard_swish, block_id=12)
+    x = _inverted_res_block(x, expansion=6, filters=_depth(160 * alpha), kernel_size=5, stride=1, attention_gate_block=True, activation=hard_swish, block_id=13)
+    x = _inverted_res_block(x, expansion=6, filters=_depth(160 * alpha), kernel_size=5, stride=1, attention_gate_block=True, activation=hard_swish, block_id=14)
     return x
 
 
